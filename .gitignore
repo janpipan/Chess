@@ -1,0 +1,14 @@
+/Debug
+/debug
+/Chess/debug
+/Chess/debug
+
+/.vs
+
+*.o
+*.d
+*.eep
+*.elf
+*.hex
+*.map
+*.srec
