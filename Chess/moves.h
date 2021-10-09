@@ -17,17 +17,15 @@
 // games states
 enum {normal_move, check_move, check_mate, fifty_move_rule, stale_mate, insufficient_material};
 
-int is_attacked(int square, int *threat_map);
 int *sliding_moves(int *board, int square, int on_move);
 int *knight_moves(int *board, int square, int on_move);
 int *pawn_moves(int *board, int square, int on_move);
 int *king_moves(int *board, int square);
 int make_move(int square, int destination, int *possible_moves);
 int *get_moves(int square, int on_move);
-int *get_threat_map(int side, int *board);
 int try_move(int square, int destination, int on_move);
 int moves_available(int side, int check, int king_position);
-int in_check(int king_position, int side, int *board);
+int is_square_attacked(int square, int side, int *board);
 int *get_moves_in_check(int square, int side, int king_position);
 int pawn_promotion(int promotion_square);
 int is_draw(int *board);

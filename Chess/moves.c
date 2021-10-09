@@ -11,17 +11,15 @@
 int slide_offsets[8] = {1,-1,16,-16,17,-17,15,-15};
 int knight_offsets[8] = {33, 31, 18, 14, -33, -31, -18, -14};
 
-// returns 1 if square is attacked
-int is_attacked(int square, int *threat_map)
-{
-	if (threat_map[square] == 1) return 1;
-	return 0;
-}
 
 // returns pointer to array of moves for sliding pieces
 int *sliding_moves(int *board, int square, int on_move)
 {
 	int *moves = malloc(28 * sizeof(int));
+	if (moves == NULL)
+	{
+		return NULL;
+	}
 	int moves_index = 0;
 	int offset_start = 0;
 	int offset_end = 8;
@@ -55,6 +53,10 @@ int *sliding_moves(int *board, int square, int on_move)
 int *knight_moves(int *board, int square, int on_move)
 {
 	int *moves = malloc(9 * sizeof(int));
+	if (moves == NULL)
+	{
+		return NULL;
+	}
 	int moves_index = 0;
 	for (int offset_start = 0; offset_start < 8; offset_start++)
 	{
@@ -77,6 +79,10 @@ int *knight_moves(int *board, int square, int on_move)
 int *pawn_moves(int *board, int square, int on_move)
 {
 	int *moves = malloc(5 * sizeof(int));
+	if (moves == NULL)
+	{
+		return NULL;
+	}
 	int moves_index = 0;
 	// checks if piece is black or white, true if black
 	if (board[square] & (black))
@@ -102,15 +108,19 @@ int *pawn_moves(int *board, int square, int on_move)
 	return moves;
 }
 
-//returns pointer to array of moves for king
+// returns pointer to array of moves for king 
 int *king_moves(int *board, int square)
 {
-	// get threat map of opponent
+	int *moves = malloc(9 * sizeof(int));
+	if (moves == NULL)
+	{
+		return NULL;
+	}
+	// set side 
 	int side = 1;
 	if (board[square] & (black)) side = 0;
-	int *threat_map = get_threat_map(side, board);
-	// allocates memory for possible moves
-	int *moves = malloc(9 * sizeof(int));
+	
+	// generate moves
 	int moves_index = 0;
 	for (int offset_start = 0; offset_start < 8; offset_start++)
 	{
@@ -118,34 +128,34 @@ int *king_moves(int *board, int square)
 		if (!(new_position & 0x88))
 		{
 			// if piece on new position is the same color continue
-			if ((board[new_position] & (white) && (board[square] & (white))) || (board[new_position] & (black) && (board[square] & (black)))) continue;
+			if ((board[new_position] & (white) && (board[square] & (white))) || (board[new_position] & (black) && (board[square] & (black))))
 			{
-				if (!is_attacked(new_position, threat_map))
-				{
-					// if there is no piece on new position add position to array
-					if (board[new_position] == empty) moves[moves_index++] = new_position;
-					// if there is enemy piece add position = capture move
-					else moves[moves_index++] = new_position;
-				}
+				continue;
+			}
+			if (!is_square_attacked(new_position, side, board))
+			{
+				// if there is no piece on new position add position to array
+				if (board[new_position] == empty) moves[moves_index++] = new_position;
+				// if there is enemy piece add position = capture move
+				else moves[moves_index++] = new_position;
 			}
 			
 		}
 	}
 	// castling moves
-	if ((square == 116 || square == 4) && !is_attacked(square, threat_map))
+	if ((square == 116 || square == 4) && !is_square_attacked(square, side, board))
 	{
 		if (board[square] & white)
 		{
 			if (board[117] == empty && board[118] == empty &&  (castling_rights & (1 << 3))) moves[moves_index++] = 118;
 			else if (board[115] == empty && board[114] == empty && board[113] == empty && (castling_rights & (1 << 2))) moves[moves_index++] = 114;
-		}else 
+		}else
 		{
 			if (board[5] == empty && board[6] == empty && (castling_rights & (1 << 1))) moves[moves_index++] = 6;
 			else if (board[3] == empty && board[2] == empty && board[1] == empty && (castling_rights & (1 << 0))) moves[moves_index++] = 2;
 		}
 	}
-	free(threat_map);
-	threat_map = NULL;
+	
 	moves[moves_index] = -1;
 	return moves;
 }
@@ -227,6 +237,7 @@ int make_move(int square, int destination, int *possible_moves)
 	}
 	return 0;
 }
+
 // returns pointer of moves for piece on the square, if square is empty return NULL
 int *get_moves(int square, int on_move)
 {
@@ -239,124 +250,21 @@ int *get_moves(int square, int on_move)
 	return NULL;
 }
 
-// returns threat map for selected side
-// side 0 = white 
-// side 1 = black
-int *get_threat_map(int side, int *board)
-{
-	int *threat_map = calloc(128, sizeof(int));
-	// variable for bit shifting
-	int side_shift = white;
-	if (side) side_shift = black;
-	
-	for (int rank = 0; rank < 8; rank++)
-	{
-		for (int file = 0; file < 16; file++)
-		{
-			int square = rank * 16 + file;
-			
-			if (!(square & 0x88))
-			{
-				if (!(board[square] & (side_shift))) continue;
-				// king attacks
-				if (board[square] & (king))
-				{
-					// loop over sliding offsets
-					for (int offset_start = 0; offset_start < 8; offset_start++)
-					{
-						int new_position = square + slide_offsets[offset_start];
-						if (!(new_position & 0x88))
-						{
-							// if piece on new position is the same color continue
-							if ((board[new_position] & (side_shift) && (board[square] & (side_shift)))) threat_map[new_position] = 1;
-							// if there is no piece on new position add position to array
-							else if (board[new_position] == empty) threat_map[new_position] = 1;
-							// if there is enemy piece add position and continue = capture move
-							else threat_map[new_position] = 1;
-						}
-					}
-				} // knight attacks
-				else if (board[square] & (knight))
-				{
-					// loop over knights offsets
-					for (int offset_start = 0; offset_start < 8; offset_start++)
-					{
-						int new_position = square + knight_offsets[offset_start];
-						if (!(new_position & 0x88))
-						{
-							// if piece on new position is the same color continue
-							if ((board[new_position] & (side_shift) && (board[square] & (side_shift)))) threat_map[new_position] = 1;
-							// if there is no piece on new position add position to array
-							else if (board[new_position] == empty) threat_map[new_position] = 1;
-							// if there is enemy piece add position = capture move
-							else threat_map[new_position] = 1;
-						}
-					}
-				} // pawn attacks
-				else if (board[square] & (pawn))
-				{
-					if (board[square] & (black))
-					{
-						threat_map[square + 15] = 1;
-						threat_map[square + 17] = 1;
-					}else
-					{
-						threat_map[square - 15] = 1;
-						threat_map[square - 17] = 1;
-					}
-				} // slide attacks
-				else if ( (board[square] & (bishop)) || (board[square] & (rook)) || (board[square] & (queen)))
-				{
-					int offset_start = 0;
-					int offset_end = 8;
-					//detects bishop
-					if (board[square] & (bishop)) offset_start = 4;
-					//detects rook
-					if (board[square] & (rook)) offset_end = 4;
-					// loop over sliding offsets
-					for (;offset_start < offset_end; offset_start++)
-					{
-						int new_position = square + slide_offsets[offset_start];
-						// add offset until square is on board 
-						while (!(new_position & 0x88))
-						{
-							// if piece on new position is the same color break
-							if ((board[new_position] & (side_shift) && (board[square] & (side_shift))))
-							{
-								threat_map[new_position] = 1;
-								break;
-							}
-							// if there is no piece on new position add position to array
-							else if (board[new_position] == empty) threat_map[new_position] = 1;
-							// if there is enemy piece add position and break = capture move
-							else
-							{
-								threat_map[new_position] = 1;
-								if (board[new_position] & king) threat_map[new_position + slide_offsets[offset_start]] = 1;
-								break;
-							}
-							new_position += slide_offsets[offset_start];
-						}
-					}
-				}
-			}
-			
-		}
-	}
-	return threat_map;
-}
-
 // returns 1 if move is possible
 int try_move(int square, int  destination, int side)
 {
 	// make temporary board
 	int *temp_board = malloc(128 * sizeof(int));
+	if (temp_board == NULL)
+	{
+		return 0;
+	}
 	memcpy(temp_board, board, 128 * sizeof(int));
 	// make move on temp board
 	temp_board[destination] = board[square];
 	temp_board[square] = empty;
 	// if king is in check after the move, move is not possible
-	if (in_check(king_position[side], side, temp_board))
+	if (is_square_attacked(king_position[side], side, temp_board))
 	{
 		free(temp_board);
 		temp_board = NULL;
@@ -400,24 +308,110 @@ int moves_available(int side, int check, int king_position)
 	return 0;
 }
 
-// returns 1 if king is in check 
-int in_check(int king_position, int side, int *board)
+// returns 1 if square is attacked
+int is_square_attacked(int square, int side, int *board)
 {
-	// get threat_map of opponent
-	int *threat_map = get_threat_map(!side, board);
-	// if king is on attacked square player is in check
-	if (threat_map[king_position] == 1)
+	// set side for checking color of pieces
+	int side_shift = black;
+	if (side) side_shift = white;
+
+	// rooks and queen attacks
+	for (int offset_start = 0; offset_start < 4; offset_start++)
 	{
-		free(threat_map);
-		threat_map = NULL;
-		return 1;
+		int new_position = square + slide_offsets[offset_start];
+		// while square is on board
+		while (!(new_position & 0x88))
+		{
+			// check if piece is enemy rook or queen
+			if ((board[new_position] & side_shift) && ((board[new_position] & queen) || (board[new_position] & rook)))
+			{
+				return 1;
+			}
+			if (board[new_position] != empty)
+			{
+				break;
+			}
+			new_position += slide_offsets[offset_start];
+		}
 	}
-	free(threat_map);
-	threat_map = NULL;
+
+	// bishops and queen attacks
+	for (int offset_start = 4; offset_start < 8; offset_start++)
+	{
+		int new_position = square + slide_offsets[offset_start];
+		// while square is on board
+		while (!(new_position & 0x88))
+		{
+			// check if piece is enemy rook or queen
+			if ((board[new_position] & side_shift) && ((board[new_position] & queen) || (board[new_position] & bishop)))
+			{
+				return 1;
+			}
+			if (board[new_position] != empty)
+			{
+				break;
+			}
+			new_position += slide_offsets[offset_start];
+		}
+	}
+
+	// knight attacks
+	for (int offset_start = 0; offset_start < 8; offset_start++)
+	{
+		int new_position = square + knight_offsets[offset_start];
+		if (!(new_position & 0x88))
+		{
+			if ((board[new_position] & side_shift) && (board[new_position] & knight))
+			{
+				return 1;
+			}
+		}
+	}
+
+	// pawn attacks
+	// white attacking
+	if (side)
+	{
+		if ((board[square + 15] & side_shift) && (board[square + 15] & pawn))
+		{
+			return 1;
+		}
+		if ((board[square + 17] & side_shift) && (board[square + 17] & pawn))
+		{
+			return 1;
+		}
+	}
+	// black attacking
+	else
+	{
+		if ((board[square - 15] & side_shift) && (board[square - 15] & pawn))
+		{
+			return 1;
+		}
+		if ((board[square - 17] & side_shift) && (board[square - 17] & pawn))
+		{
+			return 1;
+		}
+	}
+
+	// king attacks
+	for (int start_offset = 0; start_offset < 8; start_offset++)
+	{
+		int new_position = square + slide_offsets[start_offset];
+		if (!(new_position & 0x88))
+		{
+			if ((board[new_position] & side_shift) && board[new_position] & king)
+			{
+				return 1;
+			}
+		}
+	}
+
+
 	return 0;
 }
 
-// return pointer array of moves when playre is in check
+// returns pointer of moves when player is in check
 int *get_moves_in_check(int square, int side, int king_position)
 {
 	// if square is empty there is no moves
@@ -426,8 +420,16 @@ int *get_moves_in_check(int square, int side, int king_position)
 	int move_index = 0;
 	// moves without check
 	all_moves = get_moves(square, side);
+	if (all_moves == NULL)
+	{
+		return NULL;
+	}
 	// allocate space for possible moves
 	possible_moves = malloc(9 * sizeof(int));
+	if (possible_moves == NULL)
+	{
+		return NULL;
+	}
 	for (int move = 0; all_moves[move] != -1; move++)
 	{
 		// make temporary board 
@@ -443,7 +445,7 @@ int *get_moves_in_check(int square, int side, int king_position)
 		}else
 		{
 			// if king is not in check after the move move can be made
-			if (!in_check(king_position, side, temp_board)) possible_moves[move_index++] = all_moves[move];
+			if (!is_square_attacked(king_position, side, temp_board)) possible_moves[move_index++] = all_moves[move];
 		}
 		free(temp_board);
 		temp_board = NULL;
@@ -549,15 +551,14 @@ int is_draw(int *board)
 
 int get_game_state(int king_position, int side, int *board)
 {
-	if (in_check(king_position, side, board))
+	if (is_square_attacked(king_position, side, board))
 	{
-		// if player is in check set his side to 1
 		check[side] = 1;
-		// if moves are still available game is not over
 		if (moves_available(side, check[side], king_position))
 		{
 			return check_move;
-		}else
+		}
+		else
 		{
 			return check_mate;
 		}
