@@ -116,10 +116,10 @@ int *king_moves(int *board, int square)
 	{
 		return NULL;
 	}
-	// set side 
-	int side = 1;
-	if (board[square] & (black)) side = 0;
-	
+	// set side
+	int side = 0;
+	if (board[square] & (black)) side = 1;
+
 	// generate moves
 	int moves_index = 0;
 	for (int offset_start = 0; offset_start < 8; offset_start++)
@@ -139,7 +139,7 @@ int *king_moves(int *board, int square)
 				// if there is enemy piece add position = capture move
 				else moves[moves_index++] = new_position;
 			}
-			
+
 		}
 	}
 	// castling moves
@@ -155,7 +155,7 @@ int *king_moves(int *board, int square)
 			else if (board[3] == empty && board[2] == empty && board[1] == empty && (castling_rights & (1 << 0))) moves[moves_index++] = 2;
 		}
 	}
-	
+
 	moves[moves_index] = -1;
 	return moves;
 }
